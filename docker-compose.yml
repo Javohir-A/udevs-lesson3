@@ -1,0 +1,38 @@
+services:
+  mongodb:
+    container_name: mongo
+    image: imageName
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+
+  app:
+    container_name: app
+    ports:
+      - 8080:8080
+    build: ./
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:

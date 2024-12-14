@@ -4,14 +4,21 @@ import (
 	"context"
 
 	"github.com/udevs/lesson3/models"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type (
-	OrdersRepository interface {
-		Create(ctx context.Context, order *models.Order) (*models.Order, error)
-		Get(ctx context.Context, id int) (*models.Order, error)
-		Update(ctx context.Context, update *models.Order) (*models.Order, error)
-		Delete(ctx context.Context, id int) (*models.Order, error)
-		GetAll(ctx context.Context, page, limit int) ([]*models.Order, error)
-	}
-)
+type OrderRepository interface {
+	Create(ctx context.Context, order *models.Order) (*models.Order, error)
+
+	FindByID(ctx context.Context, id primitive.ObjectID) (*models.Order, error)
+
+	FindAll(ctx context.Context, page, limit int, status string) ([]*models.Order, error)
+
+	Update(ctx context.Context, id primitive.ObjectID, order *models.Order) (*models.Order, error)
+
+	Delete(ctx context.Context, id primitive.ObjectID) error
+
+	GenerateReport(ctx context.Context, startDate, endDate string) ([]*models.Order, error)
+
+	Count(ctx context.Context, status string) (int64, error)
+}
