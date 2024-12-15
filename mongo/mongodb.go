@@ -16,5 +16,6 @@ func Connect(cfg *config.MongoDBConfig) (*mongo.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return client, nil
 }

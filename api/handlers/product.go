@@ -11,13 +11,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// ProductsHandler defines handlers for product operations.
 type ProductsHandler struct {
 	productsRepo repos.ProductRepository
 	logger       *zap.Logger
 }
 
-// NewProductsHandler creates a new ProductsHandler instance.
 func NewProductsHandler(repo repos.ProductRepository, logger *zap.Logger) *ProductsHandler {
 	return &ProductsHandler{
 		productsRepo: repo,
@@ -33,8 +31,8 @@ func NewProductsHandler(repo repos.ProductRepository, logger *zap.Logger) *Produ
 // @Produce      json
 // @Param        product  body      models.Product  true  "Product details"
 // @Success      201      {object}  models.Product
-// @Failure      400      {object}  gin.H
-// @Failure      500      {object}  gin.H
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
 // @Router       /products [post]
 func (h *ProductsHandler) CreateProduct(c *gin.Context) {
 	var product models.Product
@@ -61,8 +59,8 @@ func (h *ProductsHandler) CreateProduct(c *gin.Context) {
 // @Produce      json
 // @Param        id   path      string  true  "Product ID"
 // @Success      200  {object}  models.Product
-// @Failure      404  {object}  gin.H
-// @Failure      500  {object}  gin.H
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
 // @Router       /products/{id} [get]
 func (h *ProductsHandler) GetProductByID(c *gin.Context) {
 	id := c.Param("id")
@@ -73,7 +71,7 @@ func (h *ProductsHandler) GetProductByID(c *gin.Context) {
 		return
 	}
 
-	product, err := h.productsRepo.FindByID(c.Request.Context(), objID)
+	product, err := h.productsRepo.FindByID(c.Request.Context(), objID.Hex())
 	if err != nil {
 		h.logger.Error("Product not found", zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
@@ -92,7 +90,7 @@ func (h *ProductsHandler) GetProductByID(c *gin.Context) {
 // @Param        limit   query     int     false  "Page size"
 // @Param        search  query     string  false  "Search query"
 // @Success      200     {array}   models.Product
-// @Failure      500     {object}  gin.H
+// @Failure      500     {object}  map[string]string
 // @Router       /products [get]
 func (h *ProductsHandler) GetAllProducts(c *gin.Context) {
 	page := c.DefaultQuery("page", "1")
@@ -121,4 +119,72 @@ func (h *ProductsHandler) GetAllProducts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, products)
+}
+
+// UpdateProduct godoc
+// @Summary      Update product by ID
+// @Description  Modify an existing product
+// @Tags         products
+// @Accept       json
+// @Produce      json
+// @Param        id      path      string          true  "Product ID"
+// @Param        product body      models.Product  true  "Product details"
+// @Success      200     {object}  models.Product
+// @Failure      400     {object}  map[string]string
+// @Failure      404     {object}  map[string]string
+// @Failure      500     {object}  map[string]string
+// @Router       /products/{id} [put]
+func (h *ProductsHandler) UpdateProduct(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		h.logger.Error("Invalid product ID", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	var product models.Product
+	if err := c.ShouldBindJSON(&product); err != nil {
+		h.logger.Error("Invalid input", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	updatedProduct, err := h.productsRepo.Update(c.Request.Context(), objID.Hex(), &product)
+	if err != nil {
+		h.logger.Error("Failed to update product", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update product"})
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedProduct)
+}
+
+// DeleteProduct godoc
+// @Summary      Delete product by ID
+// @Description  Remove a product from the database
+// @Tags         products
+// @Produce      json
+// @Param        id   path      string  true  "Product ID"
+// @Success      204  {object}  nil
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /products/{id} [delete]
+func (h *ProductsHandler) DeleteProduct(c *gin.Context) {
+	id := c.Param("id")
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		h.logger.Error("Invalid product ID", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	if err := h.productsRepo.Delete(c.Request.Context(), objID.Hex()); err != nil {
+		h.logger.Error("Failed to delete product", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete product"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }

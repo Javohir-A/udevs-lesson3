@@ -1,3 +1,11 @@
+/*
+ * @Author: javohir-a abdusamatovjavohir@gmail.com
+ * @Date: 2024-12-14 04:17:57
+ * @LastEditors: javohir-a abdusamatovjavohir@gmail.com
+ * @LastEditTime: 2024-12-15 05:57:37
+ * @FilePath: /lesson3/storage/products.go
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 package storage
 
 import (
@@ -23,11 +31,14 @@ func NewProductStorage(coll *mongo.Collection) *ProductStorage {
 }
 
 func (p *ProductStorage) Create(ctx context.Context, product *models.Product) (*models.Product, error) {
+	curTime := time.Now().Format("2006-01-02")
+
 	res, err := p.collection.InsertOne(ctx, bson.D{
 		{Key: "name", Value: product.Name},
 		{Key: "price", Value: product.Price},
 		{Key: "stock", Value: product.Stock},
 		{Key: "category", Value: product.Category},
+		{Key: "created_at", Value: curTime},
 	})
 
 	if err != nil {
@@ -35,24 +46,29 @@ func (p *ProductStorage) Create(ctx context.Context, product *models.Product) (*
 	}
 
 	objID, ok := res.InsertedID.(primitive.ObjectID)
-
 	if !ok {
 		log.Println("ObjectId is not valid!")
 		return nil, err
 	}
 
 	return &models.Product{
-		ID:        objID,
+		ID:        objID.Hex(),
 		Name:      product.Name,
 		Category:  product.Category,
 		Stock:     product.Stock,
 		Price:     product.Price,
-		CreatedAt: primitive.DateTime(time.Now().Unix()),
+		CreatedAt: curTime,
 	}, nil
 }
-func (p *ProductStorage) FindByID(ctx context.Context, id primitive.ObjectID) (*models.Product, error) {
+
+func (p *ProductStorage) FindByID(ctx context.Context, id string) (*models.Product, error) {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
 	res := p.collection.FindOne(ctx, bson.D{
-		{Key: "_id", Value: id},
+		{Key: "_id", Value: objID},
 	})
 	prod := models.Product{}
 
@@ -62,6 +78,7 @@ func (p *ProductStorage) FindByID(ctx context.Context, id primitive.ObjectID) (*
 
 	return &prod, nil
 }
+
 func (p *ProductStorage) FindAll(ctx context.Context, page, limit int, search string) ([]*models.Product, error) {
 	var products []*models.Product
 
@@ -93,7 +110,12 @@ func (p *ProductStorage) FindAll(ctx context.Context, page, limit int, search st
 	return products, nil
 }
 
-func (p *ProductStorage) Update(ctx context.Context, id primitive.ObjectID, product *models.Product) (*models.Product, error) {
+func (p *ProductStorage) Update(ctx context.Context, id string, product *models.Product) (*models.Product, error) {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
 	update := bson.D{
 		{Key: "$set", Value: bson.D{
 			{Key: "name", Value: product.Name},
@@ -104,7 +126,7 @@ func (p *ProductStorage) Update(ctx context.Context, id primitive.ObjectID, prod
 		}},
 	}
 
-	_, err := p.collection.UpdateByID(ctx, id, update)
+	_, err = p.collection.UpdateByID(ctx, objID, update)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +134,13 @@ func (p *ProductStorage) Update(ctx context.Context, id primitive.ObjectID, prod
 	return p.FindByID(ctx, id)
 }
 
-func (p *ProductStorage) Delete(ctx context.Context, id primitive.ObjectID) error {
-	_, err := p.collection.DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
+func (p *ProductStorage) Delete(ctx context.Context, id string) error {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = p.collection.DeleteOne(ctx, bson.D{{Key: "_id", Value: objID}})
 	return err
 }
 

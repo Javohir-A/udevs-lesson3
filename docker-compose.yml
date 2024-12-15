@@ -1,7 +1,7 @@
 services:
   mongodb:
     container_name: mongo
-    image: imageName
+    image: mongo
     volumes:
       - mongodb_data:/data/db
     networks:
